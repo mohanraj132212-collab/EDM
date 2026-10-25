@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EDM - Outdoor Map</title>
+  <title>EDM - Outdoor Navigation</title>
 
   <link
     rel="stylesheet"
@@ -25,31 +25,120 @@
     }
 
     #map {
-      height: calc(100vh - 55px);
+      height: calc(100vh - 110px);
       width: 100%;
+    }
+
+    #status {
+      padding: 10px;
+      text-align: center;
+      background: #f1f5f9;
+      font-size: 14px;
+    }
+
+    .user-dot {
+      width: 18px;
+      height: 18px;
+      background: #1685ff;
+      border: 3px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #555;
     }
   </style>
 </head>
+
 <body>
   <header>
-    <strong>EDM Indoor Navigation</strong>
+    <strong>EDM - Outdoor Navigation</strong>
   </header>
 
+  <div id="status">Finding your location...</div>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Temporary starting location: Coimbatore
+    // Temporary map center until the user's location is found
     const map = L.map("map").setView([11.0168, 76.9558], 15);
 
     L.tileLayer(
       "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       {
         maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       }
     ).addTo(map);
+
+    const status = document.getElementById("status");
+    let userMarker = null;
+    let accuracyCircle = null;
+
+    function locationFound(position) {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const accuracy = position.coords.accuracy;
+
+      const userIcon = L.divIcon({
+        className: "",
+        html: '<div class="user-dot"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      if (!userMarker) {
+        userMarker = L.marker([lat, lng], {
+          icon: userIcon
+        }).addTo(map);
+
+        accuracyCircle = L.circle([lat, lng], {
+          radius: accuracy,
+          color: "#1685ff",
+          fillOpacity: 0.08
+        }).addTo(map);
+      } else {
+        userMarker.setLatLng([lat, lng]);
+        accuracyCircle.setLatLng([lat, lng]);
+        accuracyCircle.setRadius(accuracy);
+      }
+
+      userMarker.bindPopup("You are here").openPopup();
+
+      // Center the map on the user's location
+      map.setView([lat, lng], 18);
+
+      status.textContent =
+        "Your location found. Accuracy: about " +
+        Math.round(accuracy) + " metres.";
+    }
+
+    function locationError(error) {
+      const messages = {
+        1: "Location permission denied. Allow location access in your browser.",
+        2: "Location unavailable. Please check your device settings.",
+        3: "Location request timed out. Please try again."
+      };
+
+      status.textContent =
+        messages[error.code] || "Could not find your location.";
+    }
+
+    if ("geolocation" in navigator) {
+      status.textContent = "Please allow location access.";
+
+      navigator.geolocation.getCurrentPosition(
+        locationFound,
+        locationError,
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      status.textContent =
+        "Your browser does not support location tracking.";
+    }
   </script>
 </body>
 </html>
